@@ -1,0 +1,50 @@
+---
+- name: Checking nodes list
+  hosts: nodes
+  
+  tasks:
+  - debug: msg={{ groups['nodes'] }}
+
+- name: install nginx
+  hosts: nodes
+
+  tasks:
+  - name: install nginx
+    package: name=nginx
+    become: yes
+
+  - name: start nginx
+    systemd: name=nginx state=started
+    become: yes
+
+- name: add custom page to nginx
+  hosts: nodes
+  
+  vars:
+    nginx_root:
+      Ubuntu: /var/www/html
+
+  tasks:
+  - name: Copy custom page
+    template:
+      src: index.html.j2
+      dest: "{{ web_root }}/index.html"
+    vars:
+      web_root: "{{ nginx_root[ansible_distribution] }}"
+    become: yes
+
+- name: add conf to nginx
+  hosts: nodes[0]
+  
+  tasks:
+  - name: Copy nginx conf
+    copy:
+      src: nginx-lb.conf
+      dest: /etc/nginx/nginx.cong
+    become: yes
+    notify: Apply LB config
+
+  handlers:
+  - name: Apply LB Conf
+    systemd: name=nginx state=restarted
+    become: yes
